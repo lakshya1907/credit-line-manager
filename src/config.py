@@ -1,26 +1,23 @@
-# src/config.py
-
 RANDOM_SEED = 42
-EPS = 1e-6
+EPS = 1e-9
 
-# Finance
-APR_ANNUAL = 0.24
-APR_MONTHLY = APR_ANNUAL / 12
-LGD = 0.6
+# Candidate credit limits to simulate
+LIMIT_MULTIPLIERS = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5]
 
-# Credit limit candidates
-LIMIT_MULTIPLIERS = [0.8, 1.0, 1.2, 1.5]
+# Economic scenarios
+APR_ANNUAL_SCENARIOS = [0.18, 0.24, 0.30]   # 18/24/30% APR annual
+LGD_SCENARIOS = [0.40, 0.60, 0.80]          # optimistic/base/stress LGD
 
-# EAD constraint
-MAX_BALANCE_FRAC_OF_LIMIT = 1.0
+# Robustness mode: "worst_case" or "expected"
+ROBUST_MODE = "worst_case"
 
-# --- Scenario engine (Milestone 2) ---
-APR_ANNUAL_SCENARIOS = [0.18, 0.24, 0.30]  # conservative/base/aggressive
-LGD_SCENARIOS = [0.40, 0.60, 0.80]         # optimistic/base/stress
-
-# Elasticity factor: how predicted balance responds to limit change
-# balance(L') = base_balance * (1 + ELAST * log(L'/L0))
+# Limit-response elasticity in EAD
 EAD_ELASTICITY = 0.35
 
-# robust objective: "worst_case" or "expected"
-ROBUST_MODE = "worst_case"
+# Portfolio constraints (tunable in dashboard)
+EL_BUDGET = 2.0e7          # example expected loss budget (units depend on currency scale)
+EAD_BUDGET = 5.0e7         # exposure cap
+
+# Simple policy guardrails
+PD_INCREASE_MAX = 0.08     # if PD above this, do not increase (can still decrease)
+PD_DECREASE_MIN = 0.20     # if PD above this, strongly consider decrease
