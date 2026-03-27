@@ -6,7 +6,7 @@ from src.data_prep import load_uci, basic_clean
 from src.features import build_features
 from src.pd_model import train_pd_model
 from src.calibrate import calibrate_pd, apply_calibrator
-from src.decision_engine import recommend_limits
+from decision_engine_v2 import recommend_limits
 
 DATA_PATH = "data/raw/uci_credit.csv"
 OUT_PATH = "data/processed/output.csv"
