@@ -2,8 +2,10 @@ pandas
 numpy
 scikit-learn
 xgboost
-joblib
-matplotlib
+lightgbm
 shap
 streamlit
 plotly
+joblib
+pyarrow
+scipy

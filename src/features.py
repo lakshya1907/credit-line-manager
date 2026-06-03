@@ -14,7 +14,7 @@ def build_features(df: pd.DataFrame):
 
     bill_cols = [f"BILL_AMT{i}" for i in range(1,7)]
     pay_cols  = [f"PAY_AMT{i}" for i in range(1,7)]
-    stat_cols = [f"PAY_{i}" for i in range(0,7)]  # PAY_0..PAY_6
+    stat_cols = [c for c in [f"PAY_{i}" for i in range(0, 7)] if c in df.columns]
 
     # Utilization features
     for i in range(1,7):

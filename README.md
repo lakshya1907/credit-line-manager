@@ -120,8 +120,13 @@ Production — deploy via FastAPI; PSI/CSI drift monitoring; automated retrainin
 
 Authors
 
+<<<<<<< HEAD
 Manya Chawla — 24/IT/113, Delhi Technological University
 Lakshya Jindal — 24/IT/100, Delhi Technological University
+=======
+Manya Chawla — Delhi Technological University
+Lakshya Jindal — Delhi Technological University
+>>>>>>> d91c2b1819b5204237dcf2b4b826b7c5d4404f4b
 
 
 References
@@ -129,4 +134,8 @@ References
 Hand, D.J. & Henley, W.E. (1997). Statistical classification methods in consumer credit scoring.
 Yeh, I.C. & Lien, C.H. (2009). The comparisons of data mining techniques.
 Lessmann, S. et al. (2015). Benchmarking state-of-the-art classification algorithms for credit scoring.
+<<<<<<< HEAD
 Sohn, S.Y. et al. (2014). Optimization-based credit limit management.
+=======
+Sohn, S.Y. et al. (2014). Optimization-based credit limit management.
+>>>>>>> d91c2b1819b5204237dcf2b4b826b7c5d4404f4b
