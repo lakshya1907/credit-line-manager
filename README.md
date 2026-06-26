@@ -152,7 +152,7 @@ pip install -r requirements.txt
 1. Place the UCI credit dataset at `data/raw/uci_credit.csv`.
 2. Run the full pipeline:
 ```bash
-python main.py
+python run_all.py
 ```
  
 Outputs are saved to `data/processed/output.csv`. Trained models are persisted to `models/`.
@@ -160,7 +160,7 @@ Outputs are saved to `data/processed/output.csv`. Trained models are persisted t
 To launch the interactive dashboard:
  
 ```bash
-streamlit run src/dashboard.py
+streamlit run src/dashboard_app.py
 ```
  
 ---
