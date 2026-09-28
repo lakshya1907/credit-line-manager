@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.counterfactual import apply_new_limit_features
-from src.features import _slope
+from src.counterfactual import apply_new_limit_features, build_counterfactual_batch
+from src.features import _slope, _slope_batch
 
 
 @pytest.fixture
@@ -90,3 +90,63 @@ def test_increasing_limit_lowers_utilization(base_row):
     cf = apply_new_limit_features(base_row, base_row["LIMIT_BAL"] * 2)
     original_mean = np.mean([base_row[f"util_{i}"] for i in range(1, 7)])
     assert cf["util_mean"] < original_mean
+
+
+# ─────────────────────────────────────────────
+# _slope_batch (vectorized _slope, used by build_counterfactual_batch)
+# ─────────────────────────────────────────────
+
+def test_slope_batch_matches_row_by_row_slope():
+    rng = np.random.default_rng(0)
+    matrix = rng.uniform(0, 1, size=(50, 6))
+    expected = np.array([_slope(row) for row in matrix])
+    actual = _slope_batch(matrix)
+    np.testing.assert_allclose(actual, expected, rtol=1e-9, atol=1e-12)
+
+
+def test_slope_batch_handles_flat_rows():
+    matrix = np.array([[0.5] * 6, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]])
+    actual = _slope_batch(matrix)
+    assert actual[0] == pytest.approx(0.0)
+    assert actual[1] == pytest.approx(_slope(matrix[1]))
+
+
+# ─────────────────────────────────────────────
+# build_counterfactual_batch vs. apply_new_limit_features (equivalence)
+# ─────────────────────────────────────────────
+
+def test_build_counterfactual_batch_matches_per_row_application():
+    # The whole point of build_counterfactual_batch is to replace n*k
+    # per-row apply_new_limit_features calls with one vectorized pass; the
+    # two must produce identical features for identical (customer,
+    # candidate-limit) pairs.
+    rng = np.random.default_rng(1)
+    rows = []
+    for _ in range(5):
+        limit = float(rng.uniform(5000, 30000))
+        bills = {f"BILL_AMT{i}": float(rng.uniform(0, limit * 1.5)) for i in range(1, 7)}
+        data = {
+            "LIMIT_BAL": limit,
+            **bills,
+            **{f"util_{i}": bills[f"BILL_AMT{i}"] / limit for i in range(1, 7)},
+            "util_mean": 0.0, "util_max": 0.0, "util_std": 0.0,
+            "util_last": 0.0, "util_trend": 0.0, "util_x_delinq": 0.0,
+            "pay_ratio_mean": float(rng.uniform(0, 1)),
+            "delinq_count_pos": int(rng.integers(0, 4)),
+        }
+        rows.append(data)
+    df = pd.DataFrame(rows)
+
+    multipliers = np.array([0.8, 1.0, 1.25])
+    batch = build_counterfactual_batch(df, multipliers)
+
+    for i in range(len(df)):
+        for j, m in enumerate(multipliers):
+            expected = apply_new_limit_features(df.iloc[i], df.iloc[i]["LIMIT_BAL"] * m)
+            actual = batch.iloc[i * len(multipliers) + j]
+            for col in ["LIMIT_BAL", "util_1", "util_2", "util_3", "util_4", "util_5", "util_6",
+                        "util_mean", "util_max", "util_std", "util_last", "util_trend",
+                        "util_x_delinq", "ratio_x_util"]:
+                assert actual[col] == pytest.approx(expected[col], rel=1e-9, abs=1e-9), (
+                    f"row {i}, multiplier {m}, column {col}"
+                )

@@ -8,6 +8,27 @@ def _slope(vals: np.ndarray) -> float:
         return 0.0
     return float(np.polyfit(t, vals, 1)[0])
 
+
+def _slope_batch(vals: np.ndarray) -> np.ndarray:
+    """
+    Vectorized _slope: same OLS-slope-of-a-row-against-[1..p] computation,
+    applied to every row of an (m, p) matrix at once via the closed-form
+    slope = cov(t, y) / var(t) (identical to np.polyfit(t, y, 1)[0] for a
+    degree-1 fit), instead of one np.polyfit call per row. Used by
+    counterfactual.build_counterfactual_batch so decision_engine.py can
+    score every (customer, candidate-limit) pair in one batched pass rather
+    than looping apply_new_limit_features row by row.
+    """
+    m, p = vals.shape
+    t = np.arange(1, p + 1, dtype=float)
+    t_mean = t.mean()
+    denom = np.sum((t - t_mean) ** 2)
+    y_mean = vals.mean(axis=1, keepdims=True)
+    numer = np.sum((t - t_mean) * (vals - y_mean), axis=1)
+    slopes = numer / denom
+    flat_rows = vals.std(axis=1) < 1e-12
+    return np.where(flat_rows, 0.0, slopes)
+
 def build_features(df: pd.DataFrame):
     df = df.copy()
     y = df["TARGET"].astype(int)

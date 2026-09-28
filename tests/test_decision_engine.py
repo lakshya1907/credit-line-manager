@@ -124,17 +124,22 @@ def test_profitable_increase_is_selected_and_arithmetic_matches_economics():
     assert row["el_uplift_proxy"] == pytest.approx(pd_value * ead1 - pd_value * ead0)
 
 
-def test_ead_model_is_queried_once_per_row_not_once_per_candidate():
-    # decision_engine.py computes base_balance once before looping over
-    # LIMIT_MULTIPLIERS ("Create once (important optimization)"); it must
-    # not re-query the EAD model for every candidate limit.
-    X = pd.DataFrame([make_row(10000.0)])
+def test_ead_model_is_queried_once_total_not_once_per_row_or_candidate():
+    # decision_engine.py batches every customer's base-balance prediction
+    # into a single ead_model.predict() call (and, separately, every
+    # candidate limit's PD into a single pd_model.predict_proba() call),
+    # rather than one call per row or per (row, candidate) pair -- that
+    # per-call overhead on 1-row DataFrames was the dominant cost of a full
+    # run. Use several rows to make sure it's not just "once per row"
+    # either.
+    X = pd.DataFrame([make_row(10000.0), make_row(20000.0), make_row(30000.0)])
     pd_model = ConstantPDModel(0.01)
     ead_model = ConstantEADModel(2000.0)
 
     recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model)
 
-    assert ead_model.n_calls == len(X)
+    assert ead_model.n_calls == 1
+    assert pd_model.n_calls == 2  # one baseline batch, one candidate-grid batch
 
 
 def test_customer_id_column_is_preserved_and_ordered_first():

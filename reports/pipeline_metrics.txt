@@ -3,13 +3,13 @@ CREDIT LINE MANAGER — PIPELINE METRICS REPORT
 ==============================================================
 
 [PD Model — XGBoost]
-  ROC-AUC (val)       : 0.7788
-  PR-AUC  (val)       : 0.5611
-  Brier (uncalibrated): 0.1738
+  ROC-AUC (val)       : 0.7786
+  PR-AUC  (val)       : 0.5615
+  Brier (uncalibrated): 0.1741
   Brier (calibrated)  : 0.1333
 
 [EAD Model — XGBoost Regressor]
-  MAE (val balance proxy): 735.24
+  MAE (val balance proxy): 732.87
 
 [Portfolio Optimisation (no stress)]
   EL used / budget    : -16,895,893.37 / 20,000,000.00
