@@ -476,6 +476,8 @@ def main(raw_path: str):
     print("    streamlit run src/dashboard_app.py")
     print()
 
+    return run_id
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the Credit Line Manager pipeline")
     parser.add_argument("--data", default=DEFAULT_RAW,
