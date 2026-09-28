@@ -5,7 +5,8 @@ from .counterfactual import build_counterfactual_batch
 from .economics import balance_under_limit, robust_ep
 from .calibrate import apply_calibrator
 
-def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model, pd_shock=0.0, ead_shock=0.0):
+def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model, pd_shock=0.0, ead_shock=0.0,
+                      pd_increase_max=None, pd_decrease_min=None):
     """
     pd_shock / ead_shock: proportional macro stress applied *inside* the
     simulation (e.g. pd_shock=0.2 -> every calibrated PD, baseline and
@@ -16,6 +17,11 @@ def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model, pd_shock=0.0, e
     unlike src.stress_test.apply_pd_shock/apply_ead_shock, which only
     rescale an already-decided recommendation table after the fact. See
     src/stress_test.py for which one to use where.
+
+    pd_increase_max / pd_decrease_min: override src.config.PD_INCREASE_MAX /
+    PD_DECREASE_MIN for this call only (default: use the config values).
+    Lets src.analytics.policy_compare re-run the engine under different
+    guardrail policies without mutating global config.
 
     Vectorized: every customer's baseline is scored in one batched
     pd_model/ead_model call, and every (customer, candidate-limit) pair is
@@ -33,6 +39,8 @@ def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model, pd_shock=0.0, e
     id_col = "customer_id" if "customer_id" in df.columns else None
     multipliers = np.array(LIMIT_MULTIPLIERS, dtype=float)
     k = len(multipliers)
+    pd_increase_max = PD_INCREASE_MAX if pd_increase_max is None else pd_increase_max
+    pd_decrease_min = PD_DECREASE_MIN if pd_decrease_min is None else pd_decrease_min
 
     def trainable(frame):
         return frame.drop(columns=[id_col]) if id_col else frame
@@ -71,7 +79,7 @@ def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model, pd_shock=0.0, e
     # push PD above either threshold -- matches the two `continue`s in the
     # original per-row loop exactly.
     is_increase = L1 > L0_rep
-    blocked = is_increase & ((pd1 > PD_INCREASE_MAX) | (pd1 > PD_DECREASE_MIN))
+    blocked = is_increase & ((pd1 > pd_increase_max) | (pd1 > pd_decrease_min))
     ep1_masked = np.where(blocked, -np.inf, ep1)
 
     ep1_grid = ep1_masked.reshape(n, k)
