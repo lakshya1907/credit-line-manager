@@ -64,16 +64,17 @@ def _match_reason(feat: str, shap_val: float) -> str:
 def build_explainer(pd_model, X_background: pd.DataFrame = None):
     """
     Build a SHAP TreeExplainer.
-    Passing X_background (a sample ~200 rows) enables interventional
-    SHAP which is more accurate for correlated features.
-    Without it, TreeExplainer uses the faster path-dependent method.
+
+    Always uses feature_perturbation="tree_path_dependent". XGBoost >= 2.x
+    sets enable_categorical=True on every model by default (independent of
+    whether any column is actually categorical dtype), and SHAP's
+    "interventional" mode unconditionally rejects that on TreeExplainer
+    ("Categorical split is not yet supported"). X_background is accepted
+    for API compatibility but unused, since it's only meaningful for the
+    interventional path.
     """
     import shap
-    if X_background is not None:
-        bg = X_background.sample(min(200, len(X_background)), random_state=42)
-        explainer = shap.TreeExplainer(pd_model, bg, feature_perturbation="interventional")
-    else:
-        explainer = shap.TreeExplainer(pd_model)
+    explainer = shap.TreeExplainer(pd_model, feature_perturbation="tree_path_dependent")
     return explainer
 
 
