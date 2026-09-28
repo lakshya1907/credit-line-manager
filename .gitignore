@@ -1,1 +1,12 @@
 venv/
+
+# Python build artifacts
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Generated pipeline outputs (regenerate with `python run_all.py`)
+data/processed/
+models/*.pkl
