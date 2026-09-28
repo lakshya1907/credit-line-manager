@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.api.auth import require_api_key
 from src.api.deps import get_db
 from src.api.schemas import CustomerHistoryEntry, ScoreRequest, ScoreResponse
 from src.db.models import ModelRun, Recommendation
@@ -44,7 +45,7 @@ def _trainable_row(row: pd.Series) -> pd.DataFrame:
     return frame.astype(float)
 
 
-@router.post("/{customer_id}/score", response_model=ScoreResponse)
+@router.post("/{customer_id}/score", response_model=ScoreResponse, dependencies=[Depends(require_api_key)])
 def score_customer(customer_id: int, body: ScoreRequest, request: Request):
     """Live single-customer what-if scoring against the currently loaded
     models (models/*.pkl, loaded once at startup -- see the app lifespan),

@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from src.api.auth import require_api_key
 from src.api.deps import get_db
 from src.api.jobs import create_job, get_job, run_pipeline_job
 from src.api.schemas import JobStatus, ModelRunDetail, ModelRunSummary, PaginatedRecommendations
@@ -70,7 +71,7 @@ def get_recommendations(
     return PaginatedRecommendations(total=total, limit=limit, offset=offset, items=rows)
 
 
-@router.post("", response_model=JobStatus, status_code=202)
+@router.post("", response_model=JobStatus, status_code=202, dependencies=[Depends(require_api_key)])
 def trigger_run(background_tasks: BackgroundTasks, data_path: str = Query(_DEFAULT_RAW)):
     """Triggers a full `python run_all.py` pipeline run (retrains models,
     re-scores, re-syncs to Postgres) as a background job -- returns

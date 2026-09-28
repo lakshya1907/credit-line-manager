@@ -11,15 +11,19 @@ don't exist yet (fresh clone, run_all.py never run), the app still starts
 rather than crashing at import time.
 """
 
+import logging
 import os
 
 import joblib
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.logging_config import Timer, configure_logging, log_request
 from src.data_prep import load_uci, basic_clean
 from src.features import build_features
+
+access_logger = logging.getLogger("api.access")
 
 MODEL_DIR = "models"
 RAW_PATH = "data/raw/uci_credit.csv"
@@ -35,6 +39,16 @@ ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", _default_or
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Must run here, not at module import time: uvicorn applies its own
+    # logging.config.dictConfig() (disable_existing_loggers=True by
+    # default) as part of starting the server, *after* this module is
+    # imported -- calling configure_logging() at import time got silently
+    # undone by that, and every one of our JSON log lines was lost (found
+    # by actually reading `docker logs` and seeing plain uvicorn-format
+    # access lines instead of JSON -- looked fine in the code, wasn't).
+    # lifespan startup runs after uvicorn's own logging setup, so this is
+    # the reliable place.
+    configure_logging()
     state: dict = {"models_loaded": False}
     try:
         state["pd_model"] = joblib.load(os.path.join(MODEL_DIR, "pd_xgb.pkl"))
@@ -66,6 +80,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """One JSON log line per request (method, path, status, duration) --
+    see src/api/logging_config.py. Not request tracing/metrics, just
+    enough to read container logs and answer "what got hit and how long
+    did it take" without a separate observability stack."""
+    with Timer() as t:
+        response = await call_next(request)
+    log_request(access_logger, request.method, request.url.path, response.status_code, t.duration_ms)
+    return response
+
 
 from src.api.routers import health, runs, customers  # noqa: E402  (after `app` to avoid circular import surprises)
 
