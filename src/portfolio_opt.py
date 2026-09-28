@@ -19,8 +19,15 @@ def portfolio_select(rec_df: pd.DataFrame, el_budget=EL_BUDGET, ead_budget=EAD_B
     used_ead = 0.0
 
     for _, r in inc.iterrows():
-        d_el = float(max(r["el_uplift_proxy"], 0.0))
-        d_ead = float(max(r["ead_uplift"], 0.0))
+        # NOTE: do not clamp d_el to >= 0. el_uplift_proxy = pd1*ead1 - pd0*ead0
+        # is frequently negative here (raising a limit lowers utilization, which
+        # lowers the counterfactual PD enough to outweigh the EAD increase), and
+        # flooring those deltas to 0 before accumulating silently discards real
+        # exposure growth from the running EL budget check, letting it never bind.
+        # ead_uplift is left unclamped too, for the same reason, though in
+        # practice it is already >= 0 for every "increase" row.
+        d_el = float(r["el_uplift_proxy"])
+        d_ead = float(r["ead_uplift"])
         if used_el + d_el <= el_budget and used_ead + d_ead <= ead_budget:
             chosen.append(True)
             used_el += d_el

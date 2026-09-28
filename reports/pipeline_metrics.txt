@@ -12,16 +12,16 @@ CREDIT LINE MANAGER — PIPELINE METRICS REPORT
   MAE (val balance proxy): 735.24
 
 [Portfolio Optimisation (no stress)]
-  EL used / budget    : 52.75 / 20,000,000.00
+  EL used / budget    : -7,745,345.89 / 20,000,000.00
   EAD used / budget   : 33,262,198.16 / 50,000,000.00
   Increases approved  : 3060
   Decreases           : 20969
   Total EP uplift     : 39,035,211.39
 
 [Stress Test — PD Shock]
-  +0%    → inc=3060  EP=39,035,211.39  EL used=52.75  (0.0% budget)
-  +10%   → inc=3060  EP=39,035,211.39  EL used=58.03  (0.0% budget)
-  +20%   → inc=3060  EP=39,035,211.39  EL used=63.30  (0.0% budget)
-  +30%   → inc=3060  EP=39,035,211.39  EL used=68.58  (0.0% budget)
+  +0%    → inc=3060  EP=39,035,211.39  EL used=-7,745,345.89  (-38.7% budget)
+  +10%   → inc=3060  EP=39,035,211.39  EL used=-8,519,880.48  (-42.6% budget)
+  +20%   → inc=3060  EP=39,035,211.39  EL used=-9,294,415.07  (-46.5% budget)
+  +30%   → inc=3060  EP=39,035,211.39  EL used=-10,068,949.66  (-50.3% budget)
 
 ==============================================================
