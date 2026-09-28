@@ -20,6 +20,11 @@ Runs in order:
 import os
 import sys
 import time
+import json
+import shutil
+import uuid
+import datetime
+import subprocess
 import argparse
 import warnings
 import joblib
@@ -33,8 +38,9 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.config import (
-    EL_BUDGET, EAD_BUDGET,
+    RANDOM_SEED, EL_BUDGET, EAD_BUDGET, EAD_ELASTICITY, ROBUST_MODE,
     LIMIT_MULTIPLIERS, LGD_SCENARIOS, APR_ANNUAL_SCENARIOS,
+    PD_INCREASE_MAX, PD_DECREASE_MIN,
 )
 from src.data_prep      import load_uci, basic_clean
 from src.features       import build_features
@@ -61,6 +67,13 @@ METRICS_PATH     = os.path.join(REPORT_DIR, "pipeline_metrics.txt")
 GLOBAL_IMP_PATH = os.path.join(REPORT_DIR, "shap_global_importance.csv")
 AUDIT_LOG_PATH  = os.path.join(PROC_DIR, "audit_log.csv")
 
+# Every run also gets archived here (see archive_run()) so history survives
+# the next run overwriting the paths above -- the "latest run" flat files
+# stay for backward compatibility (the dashboard reads them directly), but
+# they're no longer the only record of what a run produced.
+RUNS_DIR         = os.path.join(PROC_DIR, "runs")
+RUNS_INDEX_PATH  = os.path.join(PROC_DIR, "runs_index.csv")
+
 # ─────────────────────────────────────────────
 # Utilities
 # ─────────────────────────────────────────────
@@ -80,6 +93,108 @@ def _fmt(v, unit=""):
 def _ensure_dirs():
     for d in [PROC_DIR, MODEL_DIR, REPORT_DIR]:
         os.makedirs(d, exist_ok=True)
+
+def _new_run_id(started_at: datetime.datetime) -> str:
+    # Timestamp prefix keeps runs sortable/human-readable; a short random
+    # suffix avoids a collision if two runs somehow start in the same
+    # second (e.g. kicked off from two terminals at once).
+    return f"{started_at.strftime('%Y%m%dT%H%M%SZ')}_{uuid.uuid4().hex[:6]}"
+
+def _git_commit_hash() -> str:
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True, text=True, timeout=5,
+        )
+        return out.stdout.strip() if out.returncode == 0 else None
+    except Exception:
+        return None
+
+def _config_snapshot() -> dict:
+    """A run's config is part of what has to be reproducible/auditable about
+    it (it directly determines the guardrails and budgets that produced the
+    recommendations), not just its outputs -- so it goes in the manifest."""
+    return {
+        "random_seed": RANDOM_SEED,
+        "limit_multipliers": LIMIT_MULTIPLIERS,
+        "apr_annual_scenarios": APR_ANNUAL_SCENARIOS,
+        "lgd_scenarios": LGD_SCENARIOS,
+        "robust_mode": ROBUST_MODE,
+        "ead_elasticity": EAD_ELASTICITY,
+        "el_budget": EL_BUDGET,
+        "ead_budget": EAD_BUDGET,
+        "pd_increase_max": PD_INCREASE_MAX,
+        "pd_decrease_min": PD_DECREASE_MIN,
+    }
+
+def archive_run(
+    run_id, started_at, finished_at, raw_path,
+    pd_metrics, brier_raw, brier_cal, ead_metrics,
+    portfolio_summary, stress_df,
+):
+    """
+    Copy this run's outputs into data/processed/runs/<run_id>/, write a
+    run_manifest.json (config snapshot + every metric, so a run is
+    reproducible/explainable on its own, not just diffable against the
+    files that happen to exist right now), and append a summary row to
+    data/processed/runs_index.csv. Both runs/ and runs_index.csv are
+    gitignored (they live under data/processed/), same as every other
+    generated artifact -- this is plain per-run files, not a database; see
+    CLAUDE.md for why that's the deliberate scope here.
+    """
+    run_dir = os.path.join(RUNS_DIR, run_id)
+    os.makedirs(run_dir, exist_ok=True)
+
+    for src_path in [REC_RAW_PATH, REC_FINAL_PATH, STRESS_PATH, AUDIT_LOG_PATH,
+                      METRICS_PATH, GLOBAL_IMP_PATH]:
+        if os.path.exists(src_path):
+            shutil.copy2(src_path, os.path.join(run_dir, os.path.basename(src_path)))
+
+    manifest = {
+        "run_id": run_id,
+        "started_at_utc": started_at.isoformat(),
+        "finished_at_utc": finished_at.isoformat(),
+        "wall_time_seconds": (finished_at - started_at).total_seconds(),
+        "git_commit": _git_commit_hash(),
+        "raw_data_path": raw_path,
+        "config": _config_snapshot(),
+        "pd_model_metrics": {
+            "val_roc_auc": pd_metrics["val_roc_auc"],
+            "val_pr_auc": pd_metrics["val_pr_auc"],
+            "brier_raw": brier_raw,
+            "brier_calibrated": brier_cal,
+        },
+        "ead_model_metrics": {"val_mae": ead_metrics["val_mae"]},
+        "portfolio_summary": portfolio_summary,
+        "stress_test": stress_df.to_dict(orient="records"),
+    }
+    with open(os.path.join(run_dir, "run_manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2, default=str)
+
+    index_row = pd.DataFrame([{
+        "run_id": run_id,
+        "started_at_utc": started_at.isoformat(),
+        "wall_time_seconds": manifest["wall_time_seconds"],
+        "git_commit": manifest["git_commit"],
+        "roc_auc": pd_metrics["val_roc_auc"],
+        "pr_auc": pd_metrics["val_pr_auc"],
+        "brier_raw": brier_raw,
+        "brier_calibrated": brier_cal,
+        "ead_mae": ead_metrics["val_mae"],
+        "el_budget": portfolio_summary["el_budget"],
+        "ead_budget": portfolio_summary["ead_budget"],
+        "used_el": portfolio_summary["used_el"],
+        "used_ead": portfolio_summary["used_ead"],
+        "n_increase_applied": portfolio_summary["n_increase_applied"],
+        "n_decrease": portfolio_summary["n_decrease"],
+        "n_hold": portfolio_summary["n_hold"],
+        "total_ep_uplift": portfolio_summary["total_ep_uplift"],
+    }])
+    write_header = not os.path.exists(RUNS_INDEX_PATH)
+    index_row.to_csv(RUNS_INDEX_PATH, mode="a", index=False, header=write_header)
+
+    print(f"  Archived run   : {run_dir}")
+    print(f"  Appended to    : {RUNS_INDEX_PATH}")
 
 # ─────────────────────────────────────────────
 # Step 1: Load + clean
@@ -328,9 +443,12 @@ def step_explainability(X, rec_raw, pd_model):
 # ─────────────────────────────────────────────
 def main(raw_path: str):
     t_start = time.time()
+    started_at = datetime.datetime.now(datetime.timezone.utc)
+    run_id = _new_run_id(started_at)
     _ensure_dirs()
 
     _sep("CREDIT LINE MANAGER — FULL PIPELINE")
+    print(f"  Run ID: {run_id}")
 
     df                                                      = step_load(raw_path)
     X, y                                                    = step_features(df)
@@ -344,7 +462,14 @@ def main(raw_path: str):
     step_write_report(pd_metrics, brier_raw, brier_cal,
                       ead_metrics, portfolio_summary, stress_df)
 
+    finished_at = datetime.datetime.now(datetime.timezone.utc)
+    _sep("STEP 9 — Archive Run")
+    archive_run(run_id, started_at, finished_at, raw_path,
+                pd_metrics, brier_raw, brier_cal, ead_metrics,
+                portfolio_summary, stress_df)
+
     _sep("DONE")
+    print(f"  Run ID         : {run_id}")
     print(f"  Total wall time: {time.time()-t_start:.1f}s")
     print()
     print("  ► Launch dashboard:")
