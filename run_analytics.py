@@ -11,14 +11,19 @@ Usage:
     python run_analytics.py          # uses models/*.pkl trained by run_all.py
 
 Requires `python run_all.py` to have been run at least once (reads
-models/pd_xgb.pkl, models/pd_calibrator.pkl, models/ead_xgb.pkl).
-Writes to data/processed/analytics/ (gitignored, like the rest of
-data/processed) and prints a summary to stdout.
+models/pd_xgb.pkl, models/pd_calibrator.pkl, models/ead_xgb.pkl, and
+data/processed/runs_index.csv to identify which run_id those models came
+from). Writes to data/processed/analytics/ ("latest", gitignored like the
+rest of data/processed) AND data/processed/runs/<run_id>/analytics/ (tying
+this analytics pass to the specific model run it was computed against, the
+same way run_all.py's archive_run() does for the core pipeline -- see
+sync_run_to_db.py, which reads the per-run copy).
 """
 
 import os
 import sys
 import time
+import shutil
 import warnings
 import joblib
 import pandas as pd
@@ -37,6 +42,23 @@ from src.config import EL_BUDGET, EAD_BUDGET, PD_INCREASE_MAX, PD_DECREASE_MIN
 RAW_PATH = "data/raw/uci_credit.csv"
 MODEL_DIR = "models"
 OUT_DIR = "data/processed/analytics"
+RUNS_INDEX_PATH = "data/processed/runs_index.csv"
+RUNS_DIR = "data/processed/runs"
+
+
+def _current_run_id() -> str:
+    """The run_id of the models/*.pkl currently on disk is (by
+    construction -- run_all.py always retrains then archives in the same
+    invocation) the last row of runs_index.csv."""
+    if not os.path.exists(RUNS_INDEX_PATH):
+        raise FileNotFoundError(
+            f"{RUNS_INDEX_PATH} not found -- run `python run_all.py` first so "
+            "there's a run_id to attach this analytics pass to."
+        )
+    idx = pd.read_csv(RUNS_INDEX_PATH)
+    if idx.empty:
+        raise ValueError(f"{RUNS_INDEX_PATH} is empty -- run `python run_all.py` first.")
+    return idx.iloc[-1]["run_id"]
 
 
 def _sep(title=""):
@@ -51,6 +73,9 @@ def _sep(title=""):
 def main():
     t0 = time.time()
     os.makedirs(OUT_DIR, exist_ok=True)
+
+    run_id = _current_run_id()
+    print(f"  Attaching this analytics pass to run_id: {run_id}")
 
     _sep("Load models + data")
     pd_model = joblib.load(os.path.join(MODEL_DIR, "pd_xgb.pkl"))
@@ -111,6 +136,13 @@ def main():
     policy_path = os.path.join(OUT_DIR, "policy_comparison.csv")
     policy_df.to_csv(policy_path, index=False)
     print(f"  Saved: {policy_path}")
+
+    _sep("Archive to run history")
+    run_analytics_dir = os.path.join(RUNS_DIR, run_id, "analytics")
+    os.makedirs(run_analytics_dir, exist_ok=True)
+    for path in [segments_path, fairness_path, backtest_path, policy_path]:
+        shutil.copy2(path, os.path.join(run_analytics_dir, os.path.basename(path)))
+    print(f"  Archived to: {run_analytics_dir}")
 
     _sep("DONE")
     print(f"  Total wall time: {time.time()-t0:.1f}s")

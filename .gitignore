@@ -10,3 +10,6 @@ __pycache__/
 # Generated pipeline outputs (regenerate with `python run_all.py`)
 data/processed/
 models/*.pkl
+
+# Local environment / secrets (see .env.example)
+.env
