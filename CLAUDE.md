@@ -9,13 +9,17 @@ Adaptive credit line manager built on the UCI "Default of Credit Card Clients" d
 ## Commands
 
 ```bash
-pip install -r requirements.txt          # venv/ is gitignored; create one locally
+pip install -r requirements-dev.txt      # includes requirements.txt + pytest; venv/ is gitignored
 python run_all.py                        # full pipeline (run from repo root)
 python run_all.py --data path/to/file.csv
 streamlit run src/dashboard_app.py       # dashboard; needs run_all.py output first
+pytest                                   # tests/*.py, pure-function unit tests only (no model training)
+pytest tests/test_portfolio_opt.py -q    # single file
 ```
 
-There is no test suite, linter, or build step. Run everything from the repo root — `run_all.py` imports `src.*` as a package and all paths (`data/processed`, `models`, `reports`) are relative to the cwd.
+There is no linter or build step. Run everything from the repo root — `run_all.py` imports `src.*` as a package and all paths (`data/processed`, `models`, `reports`) are relative to the cwd.
+
+The `tests/` suite covers the pure-function modules (`economics.py`, `calibrate.py`, `counterfactual.py`, `portfolio_opt.py`, `decision_engine.py` with fake PD/EAD models) — it does not train real models or run the pipeline end-to-end. `pyproject.toml` sets `pythonpath = ["."]` so `from src... import ...` resolves without installing the package.
 
 The Step 5 decision engine loops row-by-row over all ~30k customers × 6 limit candidates with per-row model calls, so a full run is slow. SHAP is capped at `sample_n=5000` in `step_explainability`.
 
