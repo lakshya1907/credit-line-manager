@@ -51,6 +51,15 @@ def test_increase_rejected_when_it_would_exceed_budget():
     assert row["recommended_limit"] == row["current_limit"]
     assert summary["n_increase_applied"] == 0
     assert summary["used_el"] == 0.0
+    # A rejected increase must report as a genuine hold, not a hold that
+    # still quietly claims the increase's profit/risk -- see
+    # test_rejected_increase_reports_zero_uplift_not_the_hypothetical_value.
+    assert row["ep_uplift"] == 0.0
+    assert row["ead_uplift"] == 0.0
+    assert row["el_uplift_proxy"] == 0.0
+    assert row["pd_recommended"] == row["pd_current"]
+    assert row["ead_recommended"] == row["ead_current"]
+    assert row["ep_recommended"] == row["ep_current"]
 
 
 def test_negative_el_uplift_is_not_floored_to_zero():
@@ -91,15 +100,22 @@ def test_increases_are_approved_in_descending_roi_order():
     assert approved.iloc[0]["ep_uplift"] == 50.0
 
 
-def test_summary_total_ep_uplift_sums_all_rows_including_rejected():
+def test_summary_total_ep_uplift_excludes_rejected_increases():
+    # Regression test: portfolio_select used to revert only `action` and
+    # `recommended_limit` for a rejected increase, leaving ep_uplift (and
+    # pd_recommended/ead_recommended/el_uplift_proxy/ead_uplift) at their
+    # pre-rejection values -- so a row now labeled "hold" still reported
+    # the profit of the increase that was NOT approved, and total_ep_uplift
+    # silently included it. Concretely: this made total_ep_uplift come out
+    # bit-for-bit identical whether or not EAD_BUDGET was cut in half,
+    # because the rejected increases kept contributing their stale
+    # ep_uplift regardless of budget.
     df = make_rec_df([
         dict(action="increase", ep_uplift=100.0, el_uplift_proxy=5000.0, ead_uplift=200.0),  # rejected
         dict(action="decrease", ep_uplift=10.0, el_uplift_proxy=-50.0, ead_uplift=-100.0),
     ])
     out, summary = portfolio_select(df, el_budget=0.0, ead_budget=0.0)
-    # total_ep_uplift sums ep_uplift across the *output* rows regardless of
-    # whether an increase was rejected back to hold.
-    assert summary["total_ep_uplift"] == pytest.approx(100.0 + 10.0)
+    assert summary["total_ep_uplift"] == pytest.approx(10.0)  # only the decrease's uplift
 
 
 def test_output_preserves_original_row_order():

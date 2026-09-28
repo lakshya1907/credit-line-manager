@@ -16,11 +16,11 @@ CREDIT LINE MANAGER — PIPELINE METRICS REPORT
   EAD used / budget   : 49,999,999.94 / 50,000,000.00
   Increases approved  : 4610
   Decreases           : 21320
-  Total EP uplift     : 46,216,462.90
+  Total EP uplift     : 42,933,363.81
 
 [Stress Test — PD Shock]
-  +0%    → inc=4610  EP=46,216,462.90  EL used=-16,895,893.37  (-84.5% budget)
-  +10%   → inc=4598  EP=50,314,234.96  EL used=-18,662,038.58  (-93.3% budget)
+  +0%    → inc=4610  EP=42,933,363.81  EL used=-16,895,893.37  (-84.5% budget)
+  +10%   → inc=4598  EP=46,788,569.09  EL used=-18,662,038.58  (-93.3% budget)
   +20%   → inc=2342  EP=40,941,301.15  EL used=-6,597,446.84  (-33.0% budget)
   +30%   → inc=2152  EP=42,782,133.74  EL used=-5,707,515.59  (-28.5% budget)
 
