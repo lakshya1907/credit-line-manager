@@ -143,36 +143,35 @@ cd credit-line-manager
 pip install -r requirements.txt
 ```
  
-**Dependencies:** `pandas`, `numpy`, `scikit-learn`, `xgboost`, `lightgbm`, `shap`, `streamlit`, `plotly`, `joblib`, `pyarrow`, `scipy`
- 
+**Dependencies:** see `requirements.txt` (full list is longer now — Postgres/FastAPI were added after this README section was first written; see CLAUDE.md for the current architecture, this file is due a fuller rewrite).
+
 ---
- 
+
 ## Usage
- 
+
 1. Place the UCI credit dataset at `data/raw/uci_credit.csv`.
 2. Run the full pipeline:
 ```bash
 python run_all.py
 ```
- 
-Outputs are saved to `data/processed/output.csv`. Trained models are persisted to `models/`.
- 
-To launch the interactive dashboard:
- 
+
+Outputs are saved to `data/processed/recommendations_final.csv` and archived per-run under `data/processed/runs/<run_id>/`. Trained models are persisted to `models/`.
+
+3. (Optional) Load the run into Postgres and serve the API + frontend:
 ```bash
-streamlit run src/dashboard_app.py
+createdb credit_line_manager && alembic upgrade head
+python sync_run_to_db.py
+uvicorn src.api.app:app --reload
+cd frontend && npm install && npm run dev
 ```
- 
+
+See `CLAUDE.md` for the full command reference and architecture (pipeline, analytics, database, API, frontend).
+
 ---
- 
-## Dashboard
- 
-The Streamlit dashboard includes four views:
- 
-- **Portfolio Overview** — action distribution, EP uplift by action, PD distribution, EL budget utilization
-- **Action Queue** — per-customer recommendations sortable by EP uplift, downloadable as CSV
-- **Customer Drilldown** — individual limit recommendation with SHAP waterfall explanation
-- **Policy Simulator** — adjust EL/EAD budget constraints and PD shock parameters in real time, with live re-computation of portfolio outcomes
+
+## Frontend
+
+The former Streamlit dashboard (`src/dashboard_app.py`) has been replaced by a React + TypeScript SPA in `frontend/` reading from the FastAPI layer above — Runs (portfolio overview + policy comparison + segments + stress test + fairness check), Action Queue, and Customer Lookup (history + live what-if scoring). See `frontend/README.md`.
 ---
  
 ## Future Work

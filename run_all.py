@@ -472,8 +472,9 @@ def main(raw_path: str):
     print(f"  Run ID         : {run_id}")
     print(f"  Total wall time: {time.time()-t_start:.1f}s")
     print()
-    print("  ► Launch dashboard:")
-    print("    streamlit run src/dashboard_app.py")
+    print("  ► Load into Postgres + serve:")
+    print("    python sync_run_to_db.py && uvicorn src.api.app:app --reload")
+    print("    cd frontend && npm run dev")
     print()
 
     return run_id

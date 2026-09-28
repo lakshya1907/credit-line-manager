@@ -1,0 +1,17 @@
+export function fmtCurrency(v: number): string {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+export function fmtPercent(v: number, decimals = 1): string {
+  return `${(v * 100).toFixed(decimals)}%`;
+}
+
+export function fmtDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}

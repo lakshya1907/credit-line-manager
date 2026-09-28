@@ -15,13 +15,19 @@ Two ways to stress-test the portfolio, for two different use cases:
 2. apply_pd_shock() / apply_ead_shock() — fast approximation. Takes an
    *already-decided* recommendation table (whatever action the decision
    engine picked at baseline) and rescales its pd/ead columns by the
-   shock factor. This is O(1) per shock level, which is what makes it
-   usable behind an interactive slider (see the dashboard's Policy
-   Simulator page), but it cannot let a customer's chosen action change
-   under stress -- it only asks "how would the numbers on this same
-   decision look under stress", not "would we still make this decision".
-   Treat its output as a fast, approximate lower/upper bound, not as a
-   substitute for run_stress_scenario() in an offline report.
+   shock factor. This is O(1) per shock level, cheap enough for an
+   interactive slider (the now-removed Streamlit dashboard's Policy
+   Simulator page used it this way), but it cannot let a customer's
+   chosen action change under stress -- it only asks "how would the
+   numbers on this same decision look under stress", not "would we still
+   make this decision". Treat its output as a fast, approximate
+   lower/upper bound, not as a substitute for run_stress_scenario() in an
+   offline report.
+
+   Not currently called by anything (the frontend's Policy Simulator view
+   shows pre-computed named scenarios instead, see CLAUDE.md's Frontend
+   section) -- kept, and still tested, as the right tool for a future
+   live single-shock-level comparison endpoint, should one be added.
 """
 
 import pandas as pd

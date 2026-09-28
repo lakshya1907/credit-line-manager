@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-action-increase: #16a34a;
+  --color-action-decrease: #dc2626;
+  --color-action-hold: #64748b;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}

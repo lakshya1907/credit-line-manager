@@ -16,12 +16,21 @@ import os
 import joblib
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.data_prep import load_uci, basic_clean
 from src.features import build_features
 
 MODEL_DIR = "models"
 RAW_PATH = "data/raw/uci_credit.csv"
+
+# The frontend dev server goes through Vite's proxy (see frontend/vite.config.ts),
+# which needs no CORS config -- this is for calling the API directly
+# (production build, or any other client). Comma-separated in CORS_ORIGINS;
+# defaults cover Vite's own dev-server origin as a convenience if the proxy
+# is ever bypassed.
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",") if o.strip()]
 
 
 @asynccontextmanager
@@ -49,6 +58,13 @@ app = FastAPI(
                  "See CLAUDE.md's Database/API sections for the endpoint design rationale.",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 from src.api.routers import health, runs, customers  # noqa: E402  (after `app` to avoid circular import surprises)
