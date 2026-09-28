@@ -43,7 +43,7 @@ from src.calibrate      import calibrate_pd, apply_calibrator
 from src.ead_model      import make_balance_target, train_ead_model
 from src.decision_engine import recommend_limits
 from src.portfolio_opt  import portfolio_select
-from src.stress_test    import apply_pd_shock, apply_ead_shock
+from src.stress_test    import run_stress_scenario
 
 # ─────────────────────────────────────────────
 # Paths
@@ -216,15 +216,20 @@ def step_portfolio(rec: pd.DataFrame):
 # ─────────────────────────────────────────────
 # Step 7: Stress testing
 # ─────────────────────────────────────────────
-def step_stress_test(rec: pd.DataFrame):
+def step_stress_test(X, pd_model, pd_calibrator, ead_model):
     _sep("STEP 7 — Stress Testing")
     t0 = time.time()
 
     rows = []
     shocks = [0.0, 0.10, 0.20, 0.30]
     for s in shocks:
-        tmp = apply_pd_shock(rec.copy(), s)
-        _, smry = portfolio_select(tmp, el_budget=EL_BUDGET, ead_budget=EAD_BUDGET)
+        # Genuine re-simulation: the decision engine re-optimizes each
+        # customer's recommended limit under the shocked PD, so the action
+        # itself (not just its reported numbers) can change under stress.
+        # See src/stress_test.py for why this differs from the dashboard's
+        # apply_pd_shock/apply_ead_shock fast-approximation path.
+        shocked_rec = run_stress_scenario(X, pd_model, pd_calibrator, ead_model, pd_shock=s)
+        _, smry = portfolio_select(shocked_rec, el_budget=EL_BUDGET, ead_budget=EAD_BUDGET)
         rows.append({
             "pd_shock":       f"+{int(s*100)}%",
             "n_increase":     smry["n_increase_applied"],
@@ -335,7 +340,7 @@ def main(raw_path: str):
     rec_raw                                                 = step_decisions(X, pd_model, pd_calibrator, ead_model)
     rec_raw, global_imp                                     = step_explainability(X, rec_raw, pd_model)
     final_plan, portfolio_summary                           = step_portfolio(rec_raw)
-    stress_df                                               = step_stress_test(rec_raw)
+    stress_df                                               = step_stress_test(X, pd_model, pd_calibrator, ead_model)
     step_write_report(pd_metrics, brier_raw, brier_cal,
                       ead_metrics, portfolio_summary, stress_df)
 

@@ -4,12 +4,26 @@ from .counterfactual import apply_new_limit_features
 from .economics import balance_under_limit, robust_ep
 from .calibrate import apply_calibrator
 
-def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model):
+def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model, pd_shock=0.0, ead_shock=0.0):
+    """
+    pd_shock / ead_shock: proportional macro stress applied *inside* the
+    simulation (e.g. pd_shock=0.2 -> every calibrated PD, baseline and
+    every counterfactual, is scaled by 1.2 and clipped to [0, 1] before the
+    guardrails and EP comparison run; ead_shock scales the predicted base
+    balance the same way before elasticity is applied). This lets the
+    guardrails and the best-candidate choice itself respond to stress,
+    unlike src.stress_test.apply_pd_shock/apply_ead_shock, which only
+    rescale an already-decided recommendation table after the fact. See
+    src/stress_test.py for which one to use where.
+    """
     df = X_feat.copy()
     id_col = "customer_id" if "customer_id" in df.columns else None
 
     def trainable(frame):
         return frame.drop(columns=[id_col]) if id_col else frame
+
+    def shocked_pd(raw_pd):
+        return float(min(max(raw_pd * (1.0 + pd_shock), 0.0), 1.0))
 
     out_rows = []
 
@@ -25,11 +39,11 @@ def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model):
 
         # Base balance prediction
         base_balance = float(ead_model.predict(row_train)[0])
-        base_balance = max(base_balance, 0.0)
+        base_balance = max(base_balance * (1.0 + ead_shock), 0.0)
 
         # Baseline PD
         s0 = float(pd_model.predict_proba(row_train)[0, 1])
-        pd0 = float(apply_calibrator(pd_calibrator, [s0])[0])
+        pd0 = shocked_pd(float(apply_calibrator(pd_calibrator, [s0])[0]))
 
         # Baseline economics
         ead0 = balance_under_limit(base_balance, L0, L0)
@@ -45,7 +59,7 @@ def recommend_limits(X_feat, pd_model, pd_calibrator, ead_model):
             cf_train = trainable(cf_df)
 
             s1 = float(pd_model.predict_proba(cf_train)[0, 1])
-            pd1 = float(apply_calibrator(pd_calibrator, [s1])[0])
+            pd1 = shocked_pd(float(apply_calibrator(pd_calibrator, [s1])[0]))
 
             # Guardrails
             if L1 > L0 and pd1 > PD_INCREASE_MAX:

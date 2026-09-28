@@ -21,6 +21,9 @@ from plotly.subplots import make_subplots
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.portfolio_opt import portfolio_select
+# Fast-approximation rescaling, not the full re-simulation (run_stress_scenario)
+# that run_all.py's batch pipeline uses -- needed here so slider drags stay
+# instant. See src/stress_test.py's module docstring for the distinction.
 from src.stress_test import apply_pd_shock, apply_ead_shock
 from src.config import (
     EL_BUDGET, EAD_BUDGET,
@@ -484,6 +487,12 @@ def page_policy_simulator(raw_rec: pd.DataFrame):
 
     # Stress test summary table
     st.subheader("Portfolio Stress Summary")
+    st.caption(
+        "Approximate: rescales pd/ead on the plan's already-decided actions "
+        "for instant feedback, it does not re-optimize which action each "
+        "customer gets under stress. See `python run_all.py`'s "
+        "`reports/pipeline_metrics.txt` for the full re-simulated stress test."
+    )
     stress_rows = []
     for s in [0.0, 0.10, 0.20, 0.30]:
         tmp = apply_pd_shock(raw_rec.copy(), s)

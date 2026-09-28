@@ -156,3 +156,68 @@ def test_no_customer_id_column_when_absent_from_input():
     rec = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model)
 
     assert "customer_id" not in rec.columns
+
+
+# ─────────────────────────────────────────────
+# pd_shock / ead_shock (re-simulation under stress, see src/stress_test.py)
+# ─────────────────────────────────────────────
+
+def test_pd_shock_can_flip_a_baseline_increase_away_from_increase():
+    # pd_value=0.01 is comfortably under PD_INCREASE_MAX (0.08) and under
+    # the worst-case-EP breakeven PD (~0.01875 given this config's APR/LGD
+    # grid), so at baseline the engine picks "increase" (matches
+    # test_profitable_increase_is_selected_and_arithmetic_matches_economics).
+    # An 800% pd_shock (deliberately extreme, chosen only to cross
+    # PD_INCREASE_MAX deterministically, not a realistic macro assumption)
+    # pushes the shocked PD to 0.09 > PD_INCREASE_MAX, so every raised-limit
+    # candidate is rejected by the guardrail on re-simulation -- this is the
+    # whole point of re-simulating under stress rather than rescaling an
+    # already-decided recommendation, which could never change the action.
+    L0 = 10000.0
+    pd_value = 0.01
+    X = pd.DataFrame([make_row(L0)])
+    pd_model = ConstantPDModel(pd_value)
+    ead_model = ConstantEADModel(2000.0)
+
+    baseline = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model, pd_shock=0.0)
+    assert baseline.iloc[0]["action"] == "increase"
+
+    shocked = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model, pd_shock=8.0)
+    assert shocked.iloc[0]["action"] != "increase"
+    assert shocked.iloc[0]["pd_current"] == pytest.approx(min(pd_value * 9.0, 1.0))
+
+
+def test_pd_shock_is_clipped_to_one():
+    X = pd.DataFrame([make_row(10000.0)])
+    pd_model = ConstantPDModel(0.9)
+    ead_model = ConstantEADModel(1000.0)
+
+    rec = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model, pd_shock=1.0)
+
+    assert rec.iloc[0]["pd_current"] == pytest.approx(1.0)
+
+
+def test_ead_shock_scales_base_balance_before_elasticity():
+    L0 = 10000.0
+    base_balance = 2000.0
+    ead_shock = 0.15
+    X = pd.DataFrame([make_row(L0)])
+    pd_model = ConstantPDModel(0.05)
+    ead_model = ConstantEADModel(base_balance)
+
+    rec = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model, ead_shock=ead_shock)
+    row = rec.iloc[0]
+
+    expected_ead0 = balance_under_limit(base_balance * (1 + ead_shock), L0, L0)
+    assert row["ead_current"] == pytest.approx(expected_ead0)
+
+
+def test_zero_shock_matches_unshocked_call():
+    X = pd.DataFrame([make_row(10000.0)])
+    pd_model = ConstantPDModel(0.05)
+    ead_model = ConstantEADModel(1000.0)
+
+    unshocked = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model)
+    zero_shocked = recommend_limits(X, pd_model, PD_CALIBRATOR, ead_model, pd_shock=0.0, ead_shock=0.0)
+
+    pd.testing.assert_frame_equal(unshocked, zero_shocked)
