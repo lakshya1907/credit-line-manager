@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from src.api.auth import require_api_key
 from src.api.deps import get_db
 from src.api.jobs import create_job, get_job, run_pipeline_job
-from src.api.schemas import JobStatus, ModelRunDetail, ModelRunSummary, PaginatedRecommendations
+from src.api.schemas import ExposureSummaryOut, JobStatus, ModelRunDetail, ModelRunSummary, PaginatedRecommendations
 from src.db.models import ModelRun, Recommendation
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -42,6 +42,24 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
     run = db.execute(stmt).scalar_one_or_none()
     if run is None:
         raise HTTPException(404, f"run_id {run_id!r} not found")
+
+    # Portfolio-wide exposure sums, over every customer -- deliberately
+    # not the same thing as PortfolioRunOut.used_ead (which only totals
+    # approved increases). Set as a plain instance attribute (not a mapped
+    # column) so ModelRunDetail's from_attributes pickup works without a
+    # separate response-building function for one extra field.
+    totals = db.execute(
+        select(
+            func.coalesce(func.sum(Recommendation.current_limit), 0.0),
+            func.coalesce(func.sum(Recommendation.recommended_limit), 0.0),
+            func.coalesce(func.sum(Recommendation.ead_current), 0.0),
+            func.coalesce(func.sum(Recommendation.ead_recommended), 0.0),
+        ).where(Recommendation.model_run_id == run_id)
+    ).one()
+    run.exposure_summary = ExposureSummaryOut(
+        total_current_limit=totals[0], total_recommended_limit=totals[1],
+        total_current_ead=totals[2], total_recommended_ead=totals[3],
+    )
     return run
 
 

@@ -15,3 +15,14 @@ export function fmtDateTime(iso: string): string {
     year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
+
+/** PD is a 0-1 probability but small (usually <0.5) and decision-relevant
+ * at the 3rd decimal -- percent formatting loses precision analysts need
+ * ("14.9%" vs "15.0%" reads as equal-ish; "0.149" vs "0.150" doesn't). */
+export function fmtPd(v: number): string {
+  return v.toFixed(3);
+}
+
+export function fmtNumber(v: number): string {
+  return v.toLocaleString();
+}

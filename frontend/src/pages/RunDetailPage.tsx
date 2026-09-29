@@ -1,57 +1,120 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { useRun } from "../api/hooks";
-import { StatCard } from "../components/StatCard";
+import { PageHeader } from "../components/ui/PageHeader";
+import { Kpi } from "../components/ui/Kpi";
+import { Card, CardHeader } from "../components/ui/Card";
+import { ChartContainer } from "../components/ui/ChartContainer";
+import { StatusBadge } from "../components/ui/StatusBadge";
+import { Tabs } from "../components/ui/Tabs";
+import { SkeletonKpiRow, SkeletonTable, ErrorState, EmptyState } from "../components/ui/States";
+import { SegmentChart, groupBySegment } from "../components/SegmentChart";
 import { fmtCurrency, fmtDateTime, fmtPercent } from "../lib/format";
-import type { SegmentMetric } from "../api/types";
 
-function groupBySegment(rows: SegmentMetric[]): Record<string, SegmentMetric[]> {
-  const out: Record<string, SegmentMetric[]> = {};
-  for (const r of rows) (out[r.segment] ??= []).push(r);
-  return out;
-}
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "policy", label: "Policy Comparison" },
+  { id: "stress", label: "Stress Test" },
+  { id: "analytics", label: "Analytics" },
+];
 
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const { data: run, isLoading, error } = useRun(runId);
+  const [tab, setTab] = useState("overview");
 
-  if (isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
-  if (error) return <p className="text-sm text-red-600">{(error as Error).message}</p>;
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <SkeletonKpiRow />
+        <SkeletonTable />
+      </div>
+    );
+  }
+  if (error) return <ErrorState error={error} fallback="Could not load this run." />;
   if (!run) return null;
 
-  const defaultPortfolio = run.portfolio_runs.find((p) => p.policy_name === "default") ?? run.portfolio_runs[0];
+  const defaultPolicy = run.portfolio_runs.find((p) => p.policy_name === "default") ?? run.portfolio_runs[0];
   const segmentGroups = groupBySegment(run.segment_metrics);
+  const reviewFlags = run.fairness_checks.filter((f) => f.flag === "REVIEW").length;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">{run.run_id}</h1>
-        <p className="text-sm text-slate-500">
-          Started {fmtDateTime(run.started_at)} · {run.wall_time_seconds.toFixed(1)}s ·{" "}
-          <Link className="underline" to={`/runs/${run.run_id}/recommendations`}>
-            View recommendations →
-          </Link>
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={run.run_id}
+        subtitle={
+          <>
+            Started {fmtDateTime(run.started_at)} · {run.wall_time_seconds.toFixed(1)}s ·{" "}
+            <Link className="underline" to={`/runs/${run.run_id}/recommendations`}>
+              View action queue →
+            </Link>
+          </>
+        }
+      />
 
-      {defaultPortfolio && (
+      {defaultPolicy && (
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Increases approved" value={String(defaultPortfolio.n_increase_applied)} />
-          <StatCard label="Decreases" value={String(defaultPortfolio.n_decrease)} />
-          <StatCard label="Total EP uplift" value={fmtCurrency(defaultPortfolio.total_ep_uplift)} />
-          <StatCard
+          <Kpi label="Increases approved" value={String(defaultPolicy.n_increase_applied)} tone="positive" />
+          <Kpi label="Decreases" value={String(defaultPolicy.n_decrease)} tone="negative" />
+          <Kpi label="Total EP uplift" value={fmtCurrency(defaultPolicy.total_ep_uplift)} />
+          <Kpi
             label="EAD budget used"
-            value={fmtPercent(defaultPortfolio.used_ead / defaultPortfolio.ead_budget)}
-            sub={`${fmtCurrency(defaultPortfolio.used_ead)} / ${fmtCurrency(defaultPortfolio.ead_budget)}`}
+            value={fmtPercent(defaultPolicy.used_ead / defaultPolicy.ead_budget)}
+            sub={`${fmtCurrency(defaultPolicy.used_ead)} / ${fmtCurrency(defaultPolicy.ead_budget)}`}
+            tone={defaultPolicy.used_ead / defaultPolicy.ead_budget > 0.9 ? "warning" : "neutral"}
           />
         </section>
       )}
 
-      {run.portfolio_runs.length > 1 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Policy comparison</h2>
+      <Tabs
+        items={TABS.map((t) => t.id === "analytics" && reviewFlags > 0
+          ? { ...t, badge: <StatusBadge tone="warning">{reviewFlags}</StatusBadge> }
+          : t)}
+        activeId={tab}
+        onChange={setTab}
+      />
+
+      {tab === "overview" && (
+        <section className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader title="Exposure: current vs. recommended" subtitle="Total EAD across every customer in this run" />
+            <ChartContainer height="h-64 p-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[{
+                    name: "EAD",
+                    current: run.exposure_summary.total_current_ead,
+                    recommended: run.exposure_summary.total_recommended_ead,
+                  }]}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => fmtCurrency(v)} />
+                  <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
+                  <Legend />
+                  <Bar dataKey="current" name="Current" fill="#94a3b8" />
+                  <Bar dataKey="recommended" name="Recommended" fill="#0f172a" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </Card>
+          <Card>
+            <CardHeader title="Model quality" subtitle="Validation metrics for this run's PD/EAD models" />
+            <div className="grid grid-cols-2 gap-4 p-4 text-sm">
+              <div><div className="text-xs text-slate-500">PD ROC-AUC</div><div className="text-lg font-semibold text-slate-900">{run.pd_roc_auc.toFixed(4)}</div></div>
+              <div><div className="text-xs text-slate-500">PD PR-AUC</div><div className="text-lg font-semibold text-slate-900">{run.pd_pr_auc.toFixed(4)}</div></div>
+              <div><div className="text-xs text-slate-500">EAD MAE</div><div className="text-lg font-semibold text-slate-900">{run.ead_mae.toFixed(1)}</div></div>
+              <div><div className="text-xs text-slate-500">Git commit</div><div className="font-mono text-xs text-slate-600">{run.git_commit?.slice(0, 12) ?? "—"}</div></div>
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {tab === "policy" && (
+        run.portfolio_runs.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
@@ -76,122 +139,143 @@ export function RunDetailPage() {
               </tbody>
             </table>
           </div>
-        </section>
+        ) : (
+          <EmptyState title="No named policy scenarios for this run" hint="Run python run_analytics.py's policy_compare against this run's models, then re-sync." />
+        )
       )}
 
-      {run.stress_test_results.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Stress test (PD shock)</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="h-64 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={run.stress_test_results}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="pd_shock" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="n_increase" name="Increases" fill="#16a34a" />
-                  <Bar dataKey="n_decrease" name="Decreases" fill="#dc2626" />
-                  <Bar dataKey="n_hold" name="Holds" fill="#94a3b8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="h-64 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={run.stress_test_results}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="pd_shock" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => fmtCurrency(v)} />
-                  <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
-                  <Bar dataKey="total_ep_uplift" name="Total EP uplift" fill="#0f172a" />
-                </BarChart>
-              </ResponsiveContainer>
+      {tab === "stress" && (
+        run.stress_test_results.length > 0 ? (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500">
+              Each shock level re-runs the full decision engine under a shocked PD (genuine re-simulation, not a
+              rescaled approximation — see <code className="rounded bg-slate-100 px-1">src/stress_test.py</code>),
+              so the recommended action itself can change under stress, not just its reported numbers.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card>
+                <CardHeader title="Actions by shock level" />
+                <ChartContainer height="h-64 p-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={run.stress_test_results}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="pd_shock" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="n_increase" name="Increases" fill="#16a34a" />
+                      <Bar dataKey="n_decrease" name="Decreases" fill="#dc2626" />
+                      <Bar dataKey="n_hold" name="Holds" fill="#94a3b8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </Card>
+              <Card>
+                <CardHeader title="Total EP uplift by shock level" />
+                <ChartContainer height="h-64 p-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={run.stress_test_results}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="pd_shock" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => fmtCurrency(v)} />
+                      <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
+                      <Bar dataKey="total_ep_uplift" name="Total EP uplift" fill="#0f172a" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </Card>
             </div>
           </div>
-        </section>
+        ) : (
+          <EmptyState title="No stress test results for this run" />
+        )
       )}
 
-      {Object.keys(segmentGroups).length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Segment breakdown</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {Object.entries(segmentGroups).map(([segment, rows]) => (
-              <div key={segment} className="h-56 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="mb-1 text-xs font-medium text-slate-500">{segment}</div>
-                <ResponsiveContainer width="100%" height="85%">
-                  <BarChart data={rows} layout="vertical" margin={{ left: 24 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" tickFormatter={(v) => fmtPercent(v, 0)} tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="segment_value" width={90} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => fmtPercent(Number(v))} />
-                    <Bar dataKey="increase_rate" name="Increase rate" fill="#16a34a" />
-                  </BarChart>
-                </ResponsiveContainer>
+      {tab === "analytics" && (
+        <div className="space-y-6">
+          {Object.keys(segmentGroups).length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">Segment breakdown</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Object.entries(segmentGroups).map(([segment, rows]) => (
+                  <SegmentChart key={segment} segment={segment} rows={rows} />
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </section>
+          )}
 
-      {run.fairness_checks.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Fair-lending check</h2>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">Segment</th>
-                  <th className="px-3 py-2">Min/max approval ratio</th>
-                  <th className="px-3 py-2">Flag</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {run.fairness_checks.map((f) => (
-                  <tr key={f.segment}>
-                    <td className="px-3 py-2 text-slate-900">{f.segment}</td>
-                    <td className="px-3 py-2 text-slate-600">{f.min_max_approval_ratio.toFixed(3)}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          f.flag === "REVIEW" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {f.flag}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+          {run.fairness_checks.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">
+                Fair-lending check
+                <span className="ml-2 font-normal text-slate-400">
+                  (a four-fifths-rule-style screening signal, not a compliance determination — see reason codes for detail)
+                </span>
+              </h2>
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Segment</th>
+                      <th className="px-3 py-2">Min/max approval ratio</th>
+                      <th className="px-3 py-2">Flag</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {run.fairness_checks.map((f) => (
+                      <tr key={f.segment}>
+                        <td className="px-3 py-2 text-slate-900">{f.segment}</td>
+                        <td className="px-3 py-2 text-slate-600">{f.min_max_approval_ratio.toFixed(3)}</td>
+                        <td className="px-3 py-2">
+                          <StatusBadge tone={f.flag === "REVIEW" ? "warning" : "success"}>{f.flag}</StatusBadge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
-      {run.backtest_results.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Backtest (history-window comparison)</h2>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-3 py-2">Window (months)</th>
-                  <th className="px-3 py-2">ROC-AUC</th>
-                  <th className="px-3 py-2">PR-AUC</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {run.backtest_results.map((b) => (
-                  <tr key={b.window_months}>
-                    <td className="px-3 py-2 text-slate-900">{b.window_months}</td>
-                    <td className="px-3 py-2 text-slate-600">{b.val_roc_auc.toFixed(4)}</td>
-                    <td className="px-3 py-2 text-slate-600">{b.val_pr_auc.toFixed(4)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+          {run.backtest_results.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-slate-700">
+                History-window comparison
+                <span className="ml-2 font-normal text-slate-400">
+                  (not a time-series backtest — this dataset is one snapshot per customer, not repeated
+                  observations over time; compares PD performance using only the N most recent months of behavior)
+                </span>
+              </h2>
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Window (months)</th>
+                      <th className="px-3 py-2">ROC-AUC</th>
+                      <th className="px-3 py-2">PR-AUC</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {run.backtest_results.map((b) => (
+                      <tr key={b.window_months}>
+                        <td className="px-3 py-2 text-slate-900">{b.window_months}</td>
+                        <td className="px-3 py-2 text-slate-600">{b.val_roc_auc.toFixed(4)}</td>
+                        <td className="px-3 py-2 text-slate-600">{b.val_pr_auc.toFixed(4)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {run.segment_metrics.length === 0 && run.fairness_checks.length === 0 && run.backtest_results.length === 0 && (
+            <EmptyState
+              title="No analytics for this run yet"
+              hint="Run python run_analytics.py against this run's models, then re-sync with sync_run_to_db.py."
+            />
+          )}
+        </div>
       )}
     </div>
   );

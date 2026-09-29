@@ -84,6 +84,18 @@ class FairnessCheckOut(BaseModel):
     flag: str
 
 
+class ExposureSummaryOut(BaseModel):
+    """Portfolio-wide sums across every customer's recommendation for a
+    run (not just approved increases, unlike PortfolioRunOut's used_ead) --
+    answers "how does total book exposure change under the recommended
+    plan", which nothing else in the API currently does."""
+
+    total_current_limit: float
+    total_recommended_limit: float
+    total_current_ead: float
+    total_recommended_ead: float
+
+
 class ModelRunSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,6 +111,7 @@ class ModelRunSummary(BaseModel):
 
 class ModelRunDetail(ModelRunSummary):
     config: dict
+    exposure_summary: ExposureSummaryOut
     portfolio_runs: list[PortfolioRunOut]
     stress_test_results: list[StressTestResultOut]
     segment_metrics: list[SegmentMetricOut]

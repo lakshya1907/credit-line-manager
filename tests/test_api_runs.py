@@ -37,6 +37,27 @@ def test_get_run_detail_includes_nested_collections(api_client, db_available):
         assert isinstance(body[key], list)
 
 
+def test_get_run_detail_exposure_summary_is_portfolio_wide(api_client, db_available):
+    # exposure_summary sums every recommendation for the run, not just
+    # approved increases -- so it must be >= any single PortfolioRun's
+    # used_ead (which only totals approved increases).
+    require_db(db_available)
+    runs = api_client.get("/runs", params={"limit": 1}).json()
+    if not runs:
+        pytest.skip("no synced runs to test against")
+    run_id = runs[0]["run_id"]
+
+    body = api_client.get(f"/runs/{run_id}").json()
+    summary = body["exposure_summary"]
+    for key in ["total_current_limit", "total_recommended_limit", "total_current_ead", "total_recommended_ead"]:
+        assert key in summary
+        assert summary[key] >= 0
+
+    default_policy = next((p for p in body["portfolio_runs"] if p["policy_name"] == "default"), None)
+    if default_policy:
+        assert summary["total_recommended_ead"] >= default_policy["used_ead"]
+
+
 def test_get_run_detail_404_for_unknown_run(api_client, db_available):
     require_db(db_available)
     r = api_client.get("/runs/this-run-id-does-not-exist")

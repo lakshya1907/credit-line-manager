@@ -3,25 +3,25 @@ CREDIT LINE MANAGER — PIPELINE METRICS REPORT
 ==============================================================
 
 [PD Model — XGBoost]
-  ROC-AUC (val)       : 0.7801
-  PR-AUC  (val)       : 0.5595
-  Brier (uncalibrated): 0.1737
-  Brier (calibrated)  : 0.1337
+  ROC-AUC (val)       : 0.7786
+  PR-AUC  (val)       : 0.5615
+  Brier (uncalibrated): 0.1741
+  Brier (calibrated)  : 0.1333
 
 [EAD Model — XGBoost Regressor]
-  MAE (val balance proxy): 756.87
+  MAE (val balance proxy): 732.87
 
 [Portfolio Optimisation (no stress)]
-  EL used / budget    : -19,461,432.13 / 20,000,000.00
-  EAD used / budget   : 38,729,615.93 / 50,000,000.00
-  Increases approved  : 4002
-  Decreases           : 22511
-  Total EP uplift     : 43,869,314.64
+  EL used / budget    : -16,895,893.37 / 20,000,000.00
+  EAD used / budget   : 49,999,999.94 / 50,000,000.00
+  Increases approved  : 4610
+  Decreases           : 21320
+  Total EP uplift     : 42,933,363.81
 
 [Stress Test — PD Shock]
-  +0%    → inc=4002  EP=43,869,314.64  EL used=-19,461,432.13  (-97.3% budget)
-  +10%   → inc=4001  EP=48,145,338.01  EL used=-21,407,253.79  (-107.0% budget)
-  +20%   → inc=1323  EP=39,788,670.29  EL used=-6,358,970.44  (-31.8% budget)
-  +30%   → inc=1323  EP=42,276,443.68  EL used=-6,888,884.64  (-34.4% budget)
+  +0%    → inc=4610  EP=42,933,363.81  EL used=-16,895,893.37  (-84.5% budget)
+  +10%   → inc=4598  EP=46,788,569.09  EL used=-18,662,038.58  (-93.3% budget)
+  +20%   → inc=2342  EP=40,941,301.15  EL used=-6,597,446.84  (-33.0% budget)
+  +30%   → inc=2152  EP=42,782,133.74  EL used=-5,707,515.59  (-28.5% budget)
 
 ==============================================================

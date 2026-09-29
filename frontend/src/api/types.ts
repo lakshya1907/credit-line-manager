@@ -53,6 +53,13 @@ export interface FairnessCheck {
   flag: string;
 }
 
+export interface ExposureSummary {
+  total_current_limit: number;
+  total_recommended_limit: number;
+  total_current_ead: number;
+  total_recommended_ead: number;
+}
+
 export interface ModelRunSummary {
   run_id: string;
   started_at: string;
@@ -66,6 +73,7 @@ export interface ModelRunSummary {
 
 export interface ModelRunDetail extends ModelRunSummary {
   config: Record<string, unknown>;
+  exposure_summary: ExposureSummary;
   portfolio_runs: PortfolioRun[];
   stress_test_results: StressTestResult[];
   segment_metrics: SegmentMetric[];

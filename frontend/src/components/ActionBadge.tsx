@@ -1,15 +1,12 @@
 import type { Action } from "../api/types";
+import { StatusBadge, type Tone } from "./ui/StatusBadge";
 
-const STYLES: Record<Action, string> = {
-  increase: "bg-green-100 text-green-800",
-  decrease: "bg-red-100 text-red-800",
-  hold: "bg-slate-200 text-slate-700",
+const ACTION_TONE: Record<Action, Tone> = {
+  increase: "success",
+  decrease: "danger",
+  hold: "neutral",
 };
 
 export function ActionBadge({ action }: { action: Action }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STYLES[action]}`}>
-      {action}
-    </span>
-  );
+  return <StatusBadge tone={ACTION_TONE[action]}>{action}</StatusBadge>;
 }
