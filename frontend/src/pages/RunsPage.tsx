@@ -24,7 +24,7 @@ export function RunsPage() {
         subtitle="Every run_all.py execution, newest first — each triggers a fresh retrain and portfolio re-scoring."
         actions={
           <button
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1"
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1"
             disabled={trigger.isPending || polling}
             onClick={() => {
               trigger.mutate(undefined, {
@@ -66,14 +66,14 @@ export function RunsPage() {
       {runs && runs.length === 0 && (
         <EmptyState
           title="No runs yet"
-          hint={<>Trigger one above, or run <code className="rounded bg-slate-100 px-1">python run_all.py</code> and <code className="rounded bg-slate-100 px-1">python sync_run_to_db.py</code> locally.</>}
+          hint={<>Trigger one above, or run <code className="rounded bg-zinc-100 px-1">python run_all.py</code> and <code className="rounded bg-zinc-100 px-1">python sync_run_to_db.py</code> locally.</>}
         />
       )}
 
       {runs && runs.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+            <thead className="bg-zinc-50 text-left text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-4 py-2">Run ID</th>
                 <th className="px-4 py-2">Started</th>
@@ -83,20 +83,20 @@ export function RunsPage() {
                 <th className="px-4 py-2">Commit</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-zinc-100">
               {runs.map((run, i) => (
-                <tr key={run.run_id} className="hover:bg-slate-50">
+                <tr key={run.run_id} className="hover:bg-zinc-50">
                   <td className="px-4 py-2">
-                    <Link className="font-medium text-slate-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded" to={`/runs/${run.run_id}`}>
+                    <Link className="font-medium text-zinc-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 rounded" to={`/runs/${run.run_id}`}>
                       {run.run_id}
                     </Link>
                     {i === 0 && <span className="ml-2"><StatusBadge tone="info">latest</StatusBadge></span>}
                   </td>
-                  <td className="px-4 py-2 text-slate-600">{fmtDateTime(run.started_at)}</td>
-                  <td className="px-4 py-2 text-slate-600">{run.wall_time_seconds.toFixed(1)}s</td>
-                  <td className="px-4 py-2 text-slate-600">{run.pd_roc_auc.toFixed(4)}</td>
-                  <td className="px-4 py-2 text-slate-600">{run.ead_mae.toFixed(1)}</td>
-                  <td className="px-4 py-2 font-mono text-xs text-slate-400">
+                  <td className="px-4 py-2 text-zinc-600">{fmtDateTime(run.started_at)}</td>
+                  <td className="px-4 py-2 text-zinc-600">{run.wall_time_seconds.toFixed(1)}s</td>
+                  <td className="px-4 py-2 text-zinc-600">{run.pd_roc_auc.toFixed(4)}</td>
+                  <td className="px-4 py-2 text-zinc-600">{run.ead_mae.toFixed(1)}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-zinc-400">
                     {run.git_commit?.slice(0, 7) ?? "—"}
                   </td>
                 </tr>

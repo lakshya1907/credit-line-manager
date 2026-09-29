@@ -30,8 +30,8 @@ function qs(params: Record<string, string | number | undefined>): string {
 }
 
 import type {
-  CustomerHistoryEntry, JobStatus, ModelRunDetail, ModelRunSummary,
-  PaginatedRecommendations, ReadinessResponse, ScoreRequest, ScoreResponse,
+  CustomerHistoryEntry, CustomerSamplePoint, JobStatus, ModelRunDetail, ModelRunSummary,
+  PaginatedRecommendations, PortfolioDistributions, ReadinessResponse, ScoreRequest, ScoreResponse,
 } from "./types";
 
 export const api = {
@@ -54,6 +54,12 @@ export const api = {
         offset: opts.offset ?? 0,
       })}`,
     ),
+
+  getDistributions: (runId: string) =>
+    request<PortfolioDistributions>(`/runs/${runId}/distributions`),
+
+  getCustomerSample: (runId: string, n = 1500) =>
+    request<CustomerSamplePoint[]>(`/runs/${runId}/customer-sample${qs({ n })}`),
 
   triggerRun: () => request<JobStatus>("/runs", { method: "POST" }),
 

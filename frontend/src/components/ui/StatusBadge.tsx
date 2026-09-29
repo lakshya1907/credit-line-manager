@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 
 const TONE_STYLES = {
-  success: "bg-green-100 text-green-800",
-  danger: "bg-red-100 text-red-800",
-  warning: "bg-amber-100 text-amber-800",
-  neutral: "bg-slate-200 text-slate-700",
-  info: "bg-blue-100 text-blue-800",
+  success: "bg-[var(--color-positive-soft)] text-[var(--color-positive)]",
+  danger: "bg-[var(--color-negative-soft)] text-[var(--color-negative)]",
+  warning: "bg-[var(--color-warning-soft)] text-[var(--color-warning)]",
+  neutral: "bg-zinc-200 text-zinc-700",
+  info: "bg-[var(--color-brand-50)] text-[var(--color-brand-700)]",
 } as const;
 
 export type Tone = keyof typeof TONE_STYLES;

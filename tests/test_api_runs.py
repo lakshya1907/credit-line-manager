@@ -99,3 +99,46 @@ def test_get_recommendations_rejects_invalid_action(api_client, db_available):
 def test_get_job_404_for_unknown_job(api_client):
     r = api_client.get("/runs/jobs/not-a-real-job-id")
     assert r.status_code == 404
+
+
+def test_get_distributions_buckets_sum_to_total_customers(api_client, db_available):
+    require_db(db_available)
+    runs = api_client.get("/runs", params={"limit": 1}).json()
+    if not runs:
+        pytest.skip("no synced runs to test against")
+    run_id = runs[0]["run_id"]
+
+    recs_total = api_client.get(f"/runs/{run_id}/recommendations", params={"limit": 1}).json()["total"]
+    body = api_client.get(f"/runs/{run_id}/distributions").json()
+
+    for key in ["risk_distribution", "utilization_distribution", "limit_change_distribution"]:
+        assert key in body
+        assert sum(b["count"] for b in body[key]) == recs_total
+
+
+def test_get_distributions_404_for_unknown_run(api_client, db_available):
+    require_db(db_available)
+    r = api_client.get("/runs/this-run-id-does-not-exist/distributions")
+    assert r.status_code == 404
+
+
+def test_get_customer_sample_respects_n_and_shape(api_client, db_available):
+    require_db(db_available)
+    runs = api_client.get("/runs", params={"limit": 1}).json()
+    if not runs:
+        pytest.skip("no synced runs to test against")
+    run_id = runs[0]["run_id"]
+
+    r = api_client.get(f"/runs/{run_id}/customer-sample", params={"n": 10})
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) <= 10
+    if body:
+        for key in ["customer_id", "pd_current", "current_limit", "recommended_limit", "ep_uplift", "action"]:
+            assert key in body[0]
+
+
+def test_get_customer_sample_404_for_unknown_run(api_client, db_available):
+    require_db(db_available)
+    r = api_client.get("/runs/this-run-id-does-not-exist/customer-sample")
+    assert r.status_code == 404

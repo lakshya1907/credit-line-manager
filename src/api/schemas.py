@@ -96,6 +96,32 @@ class ExposureSummaryOut(BaseModel):
     total_recommended_ead: float
 
 
+class DistributionBucket(BaseModel):
+    bucket: str
+    count: int
+
+
+class PortfolioDistributionsOut(BaseModel):
+    """Bucketed counts over the *entire* recommendation set for a run (SQL
+    GROUP BY, not a sample) -- accurate distributions, not an
+    approximation, at a cost that's fine for occasional analytics-page
+    loads (one aggregate query per distribution, ~30k rows)."""
+
+    risk_distribution: list[DistributionBucket]
+    utilization_distribution: list[DistributionBucket]
+    limit_change_distribution: list[DistributionBucket]
+
+
+class CustomerSamplePoint(BaseModel):
+    customer_id: int
+    pd_current: float
+    utilization: Optional[float] = None
+    current_limit: float
+    recommended_limit: float
+    ep_uplift: float
+    action: str
+
+
 class ModelRunSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

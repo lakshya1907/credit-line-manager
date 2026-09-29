@@ -42,7 +42,7 @@ export function ChartContainer({ height, children }: { height: string; children:
 
   return (
     <div className={height}>
-      {ready ? children : <div className="h-full w-full animate-pulse rounded bg-slate-100" />}
+      {ready ? children : <div className="h-full w-full animate-pulse rounded bg-zinc-100" />}
     </div>
   );
 }

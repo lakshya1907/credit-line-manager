@@ -53,6 +53,27 @@ export interface FairnessCheck {
   flag: string;
 }
 
+export interface DistributionBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface PortfolioDistributions {
+  risk_distribution: DistributionBucket[];
+  utilization_distribution: DistributionBucket[];
+  limit_change_distribution: DistributionBucket[];
+}
+
+export interface CustomerSamplePoint {
+  customer_id: number;
+  pd_current: number;
+  utilization: number | null;
+  current_limit: number;
+  recommended_limit: number;
+  ep_uplift: number;
+  action: Action;
+}
+
 export interface ExposureSummary {
   total_current_limit: number;
   total_recommended_limit: number;

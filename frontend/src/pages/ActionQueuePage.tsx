@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { useRecommendations } from "../api/hooks";
+import { useLatestRun, useRecommendations } from "../api/hooks";
 import { ActionBadge } from "../components/ActionBadge";
 import { PageHeader } from "../components/ui/PageHeader";
 import { SkeletonTable, EmptyState, ErrorState } from "../components/ui/States";
@@ -15,7 +15,7 @@ const columns = [
     header: "Customer",
     cell: (c) => (
       <Link
-        className="font-medium text-slate-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded"
+        className="font-financial font-medium text-zinc-900 hover:text-[var(--color-brand-600)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)] rounded"
         to={`/customers/${c.getValue()}`}
       >
         {c.getValue()}
@@ -23,20 +23,47 @@ const columns = [
     ),
   }),
   columnHelper.accessor("action", { header: "Action", cell: (c) => <ActionBadge action={c.getValue()} /> }),
-  columnHelper.accessor("current_limit", { header: "Current limit", cell: (c) => fmtCurrency(c.getValue()) }),
-  columnHelper.accessor("recommended_limit", { header: "Recommended limit", cell: (c) => fmtCurrency(c.getValue()) }),
-  columnHelper.accessor("pd_current", { header: "PD (current)", cell: (c) => fmtPd(c.getValue()) }),
-  columnHelper.accessor("pd_recommended", { header: "PD (recommended)", cell: (c) => fmtPd(c.getValue()) }),
+  columnHelper.accessor("current_limit", {
+    header: "Current limit",
+    cell: (c) => <span className="font-financial tabular-nums text-zinc-700">{fmtCurrency(c.getValue())}</span>,
+  }),
+  columnHelper.accessor("recommended_limit", {
+    header: "Recommended limit",
+    cell: (c) => <span className="font-financial tabular-nums font-medium text-zinc-900">{fmtCurrency(c.getValue())}</span>,
+  }),
+  columnHelper.display({
+    id: "change",
+    header: "Change",
+    cell: (c) => {
+      const delta = c.row.original.recommended_limit - c.row.original.current_limit;
+      const tone = delta > 0 ? "text-[var(--color-positive)]" : delta < 0 ? "text-[var(--color-negative)]" : "text-zinc-400";
+      return (
+        <span className={`font-financial tabular-nums ${tone}`}>
+          {delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${fmtCurrency(delta)}`}
+        </span>
+      );
+    },
+  }),
+  columnHelper.accessor("pd_current", {
+    header: "PD",
+    cell: (c) => <span className="font-financial tabular-nums text-zinc-600">{fmtPd(c.getValue())}</span>,
+  }),
+  columnHelper.accessor("ead_current", {
+    header: "EAD",
+    cell: (c) => <span className="font-financial tabular-nums text-zinc-600">{fmtCurrency(c.getValue())}</span>,
+  }),
   columnHelper.accessor("ep_uplift", {
     header: "EP uplift",
     cell: (c) => (
-      <span className={c.getValue() >= 0 ? "text-green-700" : "text-red-700"}>{fmtCurrency(c.getValue())}</span>
+      <span className={`font-financial tabular-nums font-medium ${c.getValue() >= 0 ? "text-[var(--color-positive)]" : "text-[var(--color-negative)]"}`}>
+        {fmtCurrency(c.getValue())}
+      </span>
     ),
   }),
   columnHelper.accessor("reason_codes", {
     header: "Reason codes",
     cell: (c) => (
-      <span className="block max-w-[16rem] truncate text-xs text-slate-500" title={c.getValue() ?? undefined}>
+      <span className="block max-w-[16rem] truncate text-xs text-zinc-500" title={c.getValue() ?? undefined}>
         {c.getValue() ?? "—"}
       </span>
     ),
@@ -46,7 +73,10 @@ const columns = [
 const PAGE_SIZE = 25;
 
 export function ActionQueuePage() {
-  const { runId } = useParams<{ runId: string }>();
+  const { runId: routeRunId } = useParams<{ runId: string }>();
+  const latest = useLatestRun();
+  const runId = routeRunId ?? latest.data?.run_id;
+
   const [action, setAction] = useState<string>("");
   const [customerId, setCustomerId] = useState<string>("");
   const [page, setPage] = useState(0);
@@ -71,14 +101,14 @@ export function ActionQueuePage() {
     <div className="space-y-4">
       <PageHeader
         title="Action Queue"
-        subtitle={<Link className="text-slate-500 hover:underline" to={`/runs/${runId}`}>← Back to run {runId}</Link>}
+        subtitle={runId ? <Link className="text-zinc-500 hover:underline" to={`/runs/${runId}`}>Run {runId}</Link> : "Awaiting a run"}
       />
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
         <label className="text-sm">
-          <div className="mb-1 text-xs font-medium text-slate-500">Action</div>
+          <div className="mb-1 text-xs font-medium text-zinc-500">Action</div>
           <select
-            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)]"
             value={action}
             onChange={(e) => {
               setAction(e.target.value);
@@ -92,9 +122,9 @@ export function ActionQueuePage() {
           </select>
         </label>
         <label className="text-sm">
-          <div className="mb-1 text-xs font-medium text-slate-500">Customer ID</div>
+          <div className="mb-1 text-xs font-medium text-zinc-500">Customer ID</div>
           <input
-            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)]"
             placeholder="e.g. 12"
             value={customerId}
             onChange={(e) => {
@@ -103,7 +133,7 @@ export function ActionQueuePage() {
             }}
           />
         </label>
-        {data && <div className="text-sm text-slate-500">{data.total.toLocaleString()} matching customers</div>}
+        {data && <div className="ml-auto text-sm text-zinc-500">{data.total.toLocaleString()} matching customers</div>}
       </div>
 
       {isLoading && <SkeletonTable />}
@@ -118,24 +148,24 @@ export function ActionQueuePage() {
 
       {data && data.items.length > 0 && (
         <>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white shadow-sm">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <thead className="sticky top-0 z-10 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
                 {table.getHeaderGroups().map((hg) => (
                   <tr key={hg.id}>
                     {hg.headers.map((h) => (
-                      <th key={h.id} className="whitespace-nowrap px-3 py-2">
+                      <th key={h.id} className="whitespace-nowrap px-3 py-2.5 font-medium">
                         {flexRender(h.column.columnDef.header, h.getContext())}
                       </th>
                     ))}
                   </tr>
                 ))}
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-zinc-100">
                 {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50">
+                  <tr key={row.id} className="hover:bg-zinc-50">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="whitespace-nowrap px-3 py-2 text-slate-700">
+                      <td key={cell.id} className="whitespace-nowrap px-3 py-2.5 text-zinc-700">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -147,17 +177,17 @@ export function ActionQueuePage() {
 
           <div className="flex items-center justify-between text-sm">
             <button
-              className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+              className="rounded-md border border-zinc-300 px-3 py-1 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)]"
               disabled={page === 0}
               onClick={() => setPage((p) => p - 1)}
             >
               Previous
             </button>
-            <span className="text-slate-500">
+            <span className="text-zinc-500">
               Page {page + 1} of {Math.max(totalPages, 1)}
             </span>
             <button
-              className="rounded-md border border-slate-300 px-3 py-1 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+              className="rounded-md border border-zinc-300 px-3 py-1 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)]"
               disabled={page + 1 >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >

@@ -12,7 +12,7 @@ export function Tabs({
   items, activeId, onChange,
 }: { items: TabItem[]; activeId: string; onChange: (id: string) => void }) {
   return (
-    <div role="tablist" className="flex flex-wrap gap-1 border-b border-slate-200">
+    <div role="tablist" className="flex flex-wrap gap-1 border-b border-zinc-200">
       {items.map((item) => {
         const active = item.id === activeId;
         return (
@@ -21,10 +21,10 @@ export function Tabs({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(item.id)}
-            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1 ${
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-500)] focus-visible:ring-offset-1 ${
               active
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+                ? "border-[var(--color-brand-600)] text-zinc-900"
+                : "border-transparent text-zinc-500 hover:text-zinc-800"
             }`}
           >
             {item.label}

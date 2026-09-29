@@ -45,6 +45,23 @@ export function useRecommendations(
   });
 }
 
+export function useDistributions(runId: string | undefined) {
+  return useQuery({
+    queryKey: ["distributions", runId],
+    queryFn: () => api.getDistributions(runId as string),
+    enabled: !!runId,
+  });
+}
+
+export function useCustomerSample(runId: string | undefined, n = 1500) {
+  return useQuery({
+    queryKey: ["customer-sample", runId, n],
+    queryFn: () => api.getCustomerSample(runId as string, n),
+    enabled: !!runId,
+    staleTime: 60_000, // a random sample refreshing mid-session would visibly jitter scatter plots for no benefit
+  });
+}
+
 export function useCustomerHistory(customerId: number | undefined) {
   return useQuery({
     queryKey: ["customer-history", customerId],

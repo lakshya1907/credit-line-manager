@@ -11,8 +11,8 @@ export function groupBySegment(rows: SegmentMetric[]): Record<string, SegmentMet
 
 export function SegmentChart({ segment, rows }: { segment: string; rows: SegmentMetric[] }) {
   return (
-    <div className="h-56 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="mb-1 text-xs font-medium text-slate-500">{segment}</div>
+    <div className="h-56 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="mb-1 text-xs font-medium text-zinc-500">{segment}</div>
       <ChartContainer height="h-[85%] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} layout="vertical" margin={{ left: 24 }}>
